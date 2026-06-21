@@ -1,0 +1,653 @@
+import React, { useState, useMemo } from "react";
+
+// ---------- Design tokens ----------
+const COLORS = {
+  navy: "#0F1B2B",
+  navySoft: "#16263B",
+  card: "#1B2C42",
+  border: "rgba(237,234,224,0.12)",
+  borderStrong: "rgba(237,234,224,0.22)",
+  bone: "#EDEAE0",
+  boneMuted: "#A9B3C2",
+  boneFaint: "#6E7E94",
+  green: "#1F9E6D",
+  greenSoft: "rgba(31,158,109,0.14)",
+  amber: "#E8A23D",
+  amberSoft: "rgba(232,162,61,0.14)",
+  red: "#D6453D",
+  redSoft: "rgba(214,69,61,0.14)",
+};
+
+const FONT_DISPLAY = "'Space Grotesk', 'Inter', sans-serif";
+const FONT_BODY = "'Inter', sans-serif";
+const FONT_MONO = "'JetBrains Mono', monospace";
+
+// ---------- Sample data ----------
+const SMS_SAMPLES = [
+  {
+    id: "s1",
+    sender: "M-PESA",
+    text: "Umepokea TZS 450,000 kutoka JOHN MWAKIBOLWA. Salio: TZS 612,300. Asante kwa kutumia M-PESA.",
+    verdict: "safe",
+    reason: "Sender ID matches verified Vodacom shortcode. No urgency language, no external links.",
+  },
+  {
+    id: "s2",
+    sender: "+255 687 220 91",
+    text: "TumaPIN yako sasa kuthibitisha malipo ya TZS 850,000 vinginevyo akaunti yako itafungwa leo. Bonyeza: bit.ly/tz-confirm",
+    verdict: "fraud",
+    reason: "Classic 'TumaPIN' phrase, threat-based urgency, shortened link, sender is unregistered personal number — not an operator shortcode.",
+  },
+  {
+    id: "s3",
+    sender: "TRA-EFISCAL",
+    text: "Risiti yako ya kodi haijakamilika. Tuma namba ya siri ya TRA kwa namba hii kuepuka faini ya TZS 200,000.",
+    verdict: "fraud",
+    reason: "Impersonates TRA e-fiscal system, requests a secret/PIN code directly — TRA never requests this via SMS, fear-based phrasing ('faini').",
+  },
+  {
+    id: "s4",
+    sender: "TIGO PESA",
+    text: "Umetuma TZS 120,000 kwa AISHA NDOSI. Gharama: TZS 1,500. Salio: TZS 88,200.",
+    verdict: "safe",
+    reason: "Standard outgoing transaction confirmation. Matches operator format, no action requested from recipient.",
+  },
+  {
+    id: "s5",
+    sender: "+255 712 884 03",
+    text: "Hongera! Umeshinda zawadi ya TZS 2,000,000 kutoka Vodacom Bonanza. Tuma jina, namba ya simu na PIN kupokea zawadi yako.",
+    verdict: "fraud",
+    reason: "Unsolicited prize claim, requests PIN directly, sender is an unregistered number impersonating Vodacom.",
+  },
+];
+
+const LEDGER_ENTRIES = [
+  { id: "TX-88291", payer: "John Mwakibolwa", amount: 450000, status: "verified", device: "POS-CASH-04", time: "09:12:03" },
+  { id: "TX-88292", payer: "Aisha Ndosi", amount: 120000, status: "verified", device: "POS-CASH-04", time: "09:14:51" },
+  { id: "TX-88293", payer: "Unknown sender", amount: 850000, status: "mismatch", device: "POS-CASH-04", time: "09:19:27" },
+  { id: "TX-88294", payer: "Grace Komba", amount: 65000, status: "verified", device: "POS-CASH-01", time: "09:22:10" },
+  { id: "TX-88295", payer: "Hassan Juma", amount: 310000, status: "verified", device: "POS-CASH-04", time: "09:27:44" },
+];
+
+function simpleHash(input) {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = (h << 5) - h + input.charCodeAt(i);
+    h |= 0;
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0");
+  return hex.repeat(2).slice(0, 16);
+}
+
+function buildChain(entries) {
+  let prevHash = "00000000genesis0";
+  return entries.map((e) => {
+    const payload = `${e.id}|${e.amount}|${e.device}|${e.time}|${prevHash}`;
+    const hash = simpleHash(payload);
+    const block = { ...e, prevHash, hash };
+    prevHash = hash;
+    return block;
+  });
+}
+
+function fmtTZS(n) {
+  return "TZS " + n.toLocaleString("en-US");
+}
+
+// ---------- Shared UI bits ----------
+function Pill({ tone, children }) {
+  const map = {
+    green: { bg: COLORS.greenSoft, fg: COLORS.green },
+    amber: { bg: COLORS.amberSoft, fg: COLORS.amber },
+    red: { bg: COLORS.redSoft, fg: COLORS.red },
+    neutral: { bg: "rgba(237,234,224,0.08)", fg: COLORS.boneMuted },
+  };
+  const c = map[tone] || map.neutral;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontFamily: FONT_BODY,
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+        padding: "4px 10px",
+        borderRadius: 999,
+        background: c.bg,
+        color: c.fg,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div
+      style={{
+        fontFamily: FONT_MONO,
+        fontSize: 11,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        color: COLORS.boneFaint,
+        marginBottom: 10,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Card({ children, style }) {
+  return (
+    <div
+      style={{
+        background: COLORS.card,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 14,
+        padding: "20px 22px",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------- Scanner module ----------
+function ScannerModule() {
+  const [scanned, setScanned] = useState({});
+  const [activeId, setActiveId] = useState(null);
+  const [blockedCount, setBlockedCount] = useState(0);
+
+  const scan = (msg) => {
+    if (scanned[msg.id]) return;
+    setActiveId(msg.id);
+    setTimeout(() => {
+      setScanned((prev) => ({ ...prev, [msg.id]: true }));
+      setActiveId(null);
+      if (msg.verdict === "fraud") setBlockedCount((c) => c + 1);
+    }, 650);
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.bone, margin: 0 }}>
+            SMS smishing scanner
+          </h2>
+          <p style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.boneMuted, margin: "4px 0 0" }}>
+            On-device NLP flags fake payment SMS in Swahili and English before the cashier reads them
+          </p>
+        </div>
+        <Pill tone="red">{blockedCount} threats blocked this session</Pill>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {SMS_SAMPLES.map((msg) => {
+          const isScanned = scanned[msg.id];
+          const isScanning = activeId === msg.id;
+          const fraud = msg.verdict === "fraud";
+          return (
+            <Card key={msg.id} style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLORS.boneFaint }}>{msg.sender}</span>
+                    {isScanned && (
+                      <Pill tone={fraud ? "red" : "green"}>{fraud ? "flagged" : "verified safe"}</Pill>
+                    )}
+                  </div>
+                  <p style={{ fontFamily: FONT_BODY, fontSize: 14.5, color: COLORS.bone, margin: 0, lineHeight: 1.55 }}>
+                    {msg.text}
+                  </p>
+                  {isScanned && (
+                    <p
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 13,
+                        color: fraud ? COLORS.amber : COLORS.boneMuted,
+                        margin: "10px 0 0",
+                        paddingTop: 10,
+                        borderTop: `1px solid ${COLORS.border}`,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {msg.reason}
+                    </p>
+                  )}
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  {!isScanned && (
+                    <button
+                      onClick={() => scan(msg)}
+                      disabled={isScanning}
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: COLORS.navy,
+                        background: COLORS.bone,
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "8px 16px",
+                        cursor: isScanning ? "default" : "pointer",
+                        opacity: isScanning ? 0.6 : 1,
+                      }}
+                    >
+                      {isScanning ? "Scanning…" : "Scan message"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Ledger module ----------
+function LedgerModule() {
+  const chain = useMemo(() => buildChain(LEDGER_ENTRIES), []);
+  const [openId, setOpenId] = useState(null);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.bone, margin: 0 }}>
+          Forensic ledger
+        </h2>
+        <p style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.boneMuted, margin: "4px 0 0" }}>
+          Each verified payment is hashed with the previous entry's hash — breaking one block breaks every block after it
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        {chain.map((block, i) => {
+          const mismatch = block.status === "mismatch";
+          const isOpen = openId === block.id;
+          return (
+            <div key={block.id} style={{ display: "flex", gap: 0 }}>
+              <div style={{ width: 28, display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: mismatch ? COLORS.red : COLORS.green,
+                    marginTop: 22,
+                    flexShrink: 0,
+                  }}
+                />
+                {i < chain.length - 1 && (
+                  <div style={{ width: 2, flex: 1, background: COLORS.borderStrong, minHeight: 16 }} />
+                )}
+              </div>
+              <div style={{ flex: 1, paddingBottom: 14, minWidth: 0 }}>
+                <Card
+                  style={{
+                    padding: "14px 18px",
+                    cursor: "pointer",
+                    borderColor: mismatch ? "rgba(214,69,61,0.4)" : COLORS.border,
+                  }}
+                >
+                  <div onClick={() => setOpenId(isOpen ? null : block.id)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLORS.bone, fontWeight: 600 }}>
+                          {block.id}
+                        </span>
+                        <span style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: COLORS.boneMuted }}>
+                          {block.payer}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 13.5, color: COLORS.bone }}>
+                          {fmtTZS(block.amount)}
+                        </span>
+                        <Pill tone={mismatch ? "red" : "green"}>
+                          {mismatch ? "API mismatch" : "verified"}
+                        </Pill>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          paddingTop: 12,
+                          borderTop: `1px solid ${COLORS.border}`,
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0,1fr)",
+                          gap: 6,
+                        }}
+                      >
+                        {[
+                          ["Device ID", block.device],
+                          ["Timestamp", block.time],
+                          ["Previous hash", block.prevHash],
+                          ["Block hash", block.hash],
+                        ].map(([label, val]) => (
+                          <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <span style={{ fontFamily: FONT_BODY, fontSize: 12.5, color: COLORS.boneFaint }}>{label}</span>
+                            <span style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: mismatch ? COLORS.amber : COLORS.boneMuted, wordBreak: "break-all", textAlign: "right" }}>
+                              {val}
+                            </span>
+                          </div>
+                        ))}
+                        {mismatch && (
+                          <p style={{ fontFamily: FONT_BODY, fontSize: 12.5, color: COLORS.amber, margin: "8px 0 0", lineHeight: 1.5 }}>
+                            This SMS receipt did not match any transaction in the operator API sandbox — flagged before being recorded as paid.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ fontFamily: FONT_BODY, fontSize: 12.5, color: COLORS.boneFaint, marginTop: 4 }}>
+        Tap any block to inspect its hash chain. Exportable as PDF or Excel for TRA audits.
+      </p>
+    </div>
+  );
+}
+
+// ---------- Dashboard module ----------
+function DashboardModule() {
+  const stats = [
+    { label: "Smishing attempts flagged", value: "247", delta: "+18 today", tone: "red" },
+    { label: "Verified payments today", value: "1,083", delta: "TZS 41.2M", tone: "green" },
+    { label: "Avg. verification latency", value: "1.4s", delta: "target < 2s", tone: "green" },
+    { label: "Smishing reduction vs baseline", value: "63%", delta: "pilot target: 60%", tone: "green" },
+  ];
+
+  const recentAlerts = [
+    { time: "09:19", text: "Fake TumaPIN SMS blocked at POS-CASH-04", tone: "red" },
+    { time: "09:41", text: "Receipt mismatch flagged — TX-88293", tone: "amber" },
+    { time: "10:02", text: "TRA-impersonation SMS blocked at POS-CASH-01", tone: "red" },
+    { time: "10:30", text: "47 transactions verified, 0 mismatches", tone: "green" },
+  ];
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.bone, margin: 0 }}>
+          Owner dashboard
+        </h2>
+        <p style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.boneMuted, margin: "4px 0 0" }}>
+          Pilot snapshot across 50 SMEs — live view of fraud blocked and payments verified
+        </p>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        {stats.map((s) => (
+          <Card key={s.label} style={{ padding: "16px 18px" }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 12.5, color: COLORS.boneFaint, marginBottom: 8 }}>
+              {s.label}
+            </div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 600, color: COLORS.bone, marginBottom: 6 }}>
+              {s.value}
+            </div>
+            <Pill tone={s.tone}>{s.delta}</Pill>
+          </Card>
+        ))}
+      </div>
+
+      <SectionLabel>Live alert feed</SectionLabel>
+      <Card style={{ padding: "8px 0" }}>
+        {recentAlerts.map((a, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "12px 20px",
+              borderBottom: i < recentAlerts.length - 1 ? `1px solid ${COLORS.border}` : "none",
+            }}
+          >
+            <span style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.boneFaint, width: 44, flexShrink: 0 }}>
+              {a.time}
+            </span>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: a.tone === "red" ? COLORS.red : a.tone === "amber" ? COLORS.amber : COLORS.green,
+              }}
+            />
+            <span style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: COLORS.bone }}>{a.text}</span>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Architecture module ----------
+function ArchBox({ title, subtitle, tone = "neutral", x, y, w, h }) {
+  const map = {
+    green: { bg: COLORS.greenSoft, border: "rgba(31,158,109,0.45)", title: COLORS.green },
+    amber: { bg: COLORS.amberSoft, border: "rgba(232,162,61,0.45)", title: COLORS.amber },
+    red: { bg: COLORS.redSoft, border: "rgba(214,69,61,0.45)", title: COLORS.red },
+    neutral: { bg: "rgba(237,234,224,0.06)", border: COLORS.borderStrong, title: COLORS.bone },
+  };
+  const c = map[tone];
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <rect width={w} height={h} rx="8" fill={c.bg} stroke={c.border} strokeWidth="1" />
+      <text x={w / 2} y={h / 2 - (subtitle ? 6 : 0)} textAnchor="middle" fontFamily={FONT_BODY} fontSize="13" fontWeight="600" fill={c.title}>
+        {title}
+      </text>
+      {subtitle && (
+        <text x={w / 2} y={h / 2 + 14} textAnchor="middle" fontFamily={FONT_BODY} fontSize="11" fill={COLORS.boneFaint}>
+          {subtitle}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function Arrow({ x1, y1, x2, y2 }) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLen = 7;
+  return (
+    <g>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={COLORS.boneFaint} strokeWidth="1.4" />
+      <polygon
+        points={`0,-4 ${headLen},0 0,4`}
+        transform={`translate(${x2},${y2}) rotate(${(angle * 180) / Math.PI})`}
+        fill={COLORS.boneFaint}
+      />
+    </g>
+  );
+}
+
+function ArchitectureModule() {
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.bone, margin: 0 }}>
+          System architecture
+        </h2>
+        <p style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.boneMuted, margin: "4px 0 0" }}>
+          Three layers map directly to the three modules in this demo
+        </p>
+      </div>
+
+      <Card style={{ marginBottom: 24, overflowX: "auto" }}>
+        <svg viewBox="0 0 720 300" style={{ width: "100%", minWidth: 600, display: "block" }}>
+          <ArchBox x={20} y={20} w={150} h={56} title="Cashier app" subtitle="receives SMS" tone="neutral" />
+          <ArchBox x={290} y={20} w={150} h={56} title="NLP scanner" subtitle="Swahili + English" tone="amber" />
+          <ArchBox x={560} y={20} w={140} h={56} title="Block sender" tone="red" />
+
+          <ArchBox x={20} y={120} w={150} h={56} title="Verification module" subtitle="checks ledger" tone="neutral" />
+          <ArchBox x={290} y={120} w={150} h={56} title="Operator API sandbox" subtitle="Vodacom / Tigo" tone="amber" />
+          <ArchBox x={560} y={120} w={140} h={56} title="Flag mismatch" tone="red" />
+
+          <ArchBox x={20} y={220} w={150} h={56} title="Forensic ledger" subtitle="hash chain" tone="green" />
+          <ArchBox x={290} y={220} w={150} h={56} title="Owner dashboard" subtitle="live stats" tone="green" />
+          <ArchBox x={560} y={220} w={140} h={56} title="TRA export" subtitle="PDF / Excel" tone="green" />
+
+          <Arrow x1={170} y1={48} x2={285} y2={48} />
+          <Arrow x1={440} y1={48} x2={555} y2={48} />
+          <Arrow x1={170} y1={148} x2={285} y2={148} />
+          <Arrow x1={440} y1={148} x2={555} y2={148} />
+          <Arrow x1={170} y1={248} x2={285} y2={248} />
+          <Arrow x1={440} y1={248} x2={555} y2={248} />
+          <Arrow x1={95} y1={76} x2={95} y2={117} />
+          <Arrow x1={365} y1={176} x2={365} y2={217} />
+        </svg>
+      </Card>
+
+      <SectionLabel>Verification flow</SectionLabel>
+      <Card>
+        <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            "Customer pays via mobile money; an SMS receipt arrives at the cashier's device.",
+            "On-device NLP scans the SMS text for known smishing patterns before the cashier sees it.",
+            "If safe, the verification module checks the claimed amount against the operator API sandbox in real time, target under two seconds.",
+            "A match writes a new block to the forensic ledger, hashed against the previous block's hash.",
+            "A mismatch is flagged immediately and excluded from the ledger until a human reviews it.",
+            "Owners view live totals on the dashboard; auditors export the ledger as PDF or Excel for TRA compliance.",
+          ].map((step, i) => (
+            <li key={i} style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.bone, lineHeight: 1.6, paddingLeft: 4 }}>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- App shell ----------
+const TABS = [
+  { id: "scanner", label: "SMS scanner" },
+  { id: "ledger", label: "Forensic ledger" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "architecture", label: "Architecture" },
+];
+
+export default function MlinziPesaDemo() {
+  const [tab, setTab] = useState("scanner");
+
+  return (
+    <div
+      style={{
+        background: COLORS.navy,
+        minHeight: 640,
+        padding: "0 0 40px",
+        fontFamily: FONT_BODY,
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        * { box-sizing: border-box; }
+      `}</style>
+
+      {/* Top bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "22px 28px 18px",
+          borderBottom: `1px solid ${COLORS.border}`,
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: COLORS.green,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 700,
+              fontSize: 15,
+              color: COLORS.navy,
+              flexShrink: 0,
+            }}
+          >
+            M
+          </div>
+          <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 600, color: COLORS.bone }}>
+            MlinziPesa
+          </span>
+        </div>
+        <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLORS.boneFaint }}>
+          Mobile money fraud shield — pilot demo
+        </span>
+      </div>
+
+      {/* Tabs */}
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          padding: "16px 28px 0",
+          borderBottom: `1px solid ${COLORS.border}`,
+          overflowX: "auto",
+        }}
+      >
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                fontFamily: FONT_BODY,
+                fontSize: 13.5,
+                fontWeight: 600,
+                color: active ? COLORS.bone : COLORS.boneFaint,
+                background: "none",
+                border: "none",
+                padding: "10px 16px 14px",
+                cursor: "pointer",
+                borderBottom: active ? `2px solid ${COLORS.green}` : "2px solid transparent",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "26px 28px 0", maxWidth: 920, margin: "0 auto" }}>
+        {tab === "scanner" && <ScannerModule />}
+        {tab === "ledger" && <LedgerModule />}
+        {tab === "dashboard" && <DashboardModule />}
+        {tab === "architecture" && <ArchitectureModule />}
+      </div>
+    </div>
+  );
+}
