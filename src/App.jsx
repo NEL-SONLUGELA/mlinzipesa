@@ -94,6 +94,71 @@ function fmtTZS(n) {
   return "TZS " + n.toLocaleString("en-US");
 }
 
+// ---------- Live detection engine (rule-based) ----------
+// Scans real typed text for known smishing patterns. This is a rule-based
+// detector, not a trained NLP model — see README for the difference and
+// what a production version would add.
+const VERIFIED_SENDERS = ["m-pesa", "mpesa", "tigo pesa", "tigopesa", "airtel money", "halopesa"];
+
+const FLAG_RULES = [
+  {
+    test: (t) => /tuma\s*pin/i.test(t) || /send\s*(your\s*)?pin/i.test(t),
+    label: "Requests PIN directly",
+    detail: "Legitimate operators and TRA never ask you to send your PIN or secret code by SMS.",
+  },
+  {
+    test: (t) => /(siri|secret code|namba ya siri)/i.test(t),
+    label: "Requests a secret code",
+    detail: "Asking for a 'siri' (secret) code is a common credential-theft tactic.",
+  },
+  {
+    test: (t) => /(tra|kodi|efiscal|e-fiscal)/i.test(t) && /(faini|fine|penalty|tuma)/i.test(t),
+    label: "Impersonates TRA with a threat",
+    detail: "Messages claiming to be from TRA that demand action to avoid a fine are a known scam pattern.",
+  },
+  {
+    test: (t) => /(itafungwa|account.*(block|suspend|close)|akaunti.*fungwa)/i.test(t),
+    label: "Threatens to block your account",
+    detail: "Urgency built around account suspension pressures victims to act without thinking.",
+  },
+  {
+    test: (t) => /(hongera|congratulations|umeshinda|won|zawadi|prize|bonanza)/i.test(t),
+    label: "Unsolicited prize or reward claim",
+    detail: "Prize messages that ask for personal details or a PIN are a classic lure.",
+  },
+  {
+    test: (t) => /(bit\.ly|tinyurl|goo\.gl|t\.co|short\.link|bonyeza.*http)/i.test(t),
+    label: "Contains a shortened or suspicious link",
+    detail: "Shortened links hide the real destination and are commonly used in phishing SMS.",
+  },
+  {
+    test: (t) => /(sasa|leo|immediately|now|within \d+ (minutes|hours))/i.test(t) && /(tuma|send|confirm|thibitisha)/i.test(t),
+    label: "Urgency language paired with a request to act",
+    detail: "Combining time pressure with a request to send something is a typical manipulation pattern.",
+  },
+];
+
+function checkSenderTrust(sender) {
+  const s = (sender || "").trim().toLowerCase();
+  if (!s) return { trusted: false, reason: "No sender provided — cannot verify against operator shortcode list." };
+  const isKnownShortcode = VERIFIED_SENDERS.some((v) => s.includes(v));
+  const looksLikePersonalNumber = /^\+?\d[\d\s-]{6,}$/.test(s);
+  if (isKnownShortcode) {
+    return { trusted: true, reason: "Sender matches a known operator shortcode." };
+  }
+  if (looksLikePersonalNumber) {
+    return { trusted: false, reason: "Sender is a personal phone number, not a registered operator shortcode." };
+  }
+  return { trusted: false, reason: "Sender does not match any known verified shortcode." };
+}
+
+function scanMessage(sender, text) {
+  const matches = FLAG_RULES.filter((rule) => rule.test(text));
+  const senderCheck = checkSenderTrust(sender);
+  const isFraud = matches.length > 0 || !senderCheck.trusted;
+  return { isFraud, matches, senderCheck };
+}
+
 // ---------- Shared UI bits ----------
 function Pill({ tone, children }) {
   const map = {
@@ -158,6 +223,134 @@ function Card({ children, style }) {
   );
 }
 
+// ---------- Live tester ----------
+function LiveTester({ onFraudDetected }) {
+  const [sender, setSender] = useState("");
+  const [text, setText] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const inputStyle = {
+    fontFamily: FONT_BODY,
+    fontSize: 14,
+    color: COLORS.bone,
+    background: COLORS.navy,
+    border: `1px solid ${COLORS.borderStrong}`,
+    borderRadius: 8,
+    padding: "10px 12px",
+    width: "100%",
+  };
+
+  const runScan = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setScanning(true);
+    setResult(null);
+    setTimeout(() => {
+      const r = scanMessage(sender, trimmed);
+      setResult(r);
+      setScanning(false);
+      if (r.isFraud) onFraudDetected();
+    }, 500);
+  };
+
+  return (
+    <Card style={{ marginBottom: 26 }}>
+      <div
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 11,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: COLORS.boneFaint,
+          marginBottom: 10,
+        }}
+      >
+        Try it yourself — type any message
+      </div>
+
+      <input
+        type="text"
+        placeholder="Sender (e.g. M-PESA or a phone number)"
+        value={sender}
+        onChange={(e) => setSender(e.target.value)}
+        style={{ ...inputStyle, maxWidth: 280, marginBottom: 10 }}
+      />
+
+      <textarea
+        placeholder="Type or paste any SMS message here, in Swahili or English..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ ...inputStyle, minHeight: 76, lineHeight: 1.5, resize: "vertical" }}
+      />
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+        <button
+          onClick={runScan}
+          disabled={scanning}
+          style={{
+            fontFamily: FONT_BODY,
+            fontSize: 13,
+            fontWeight: 600,
+            color: COLORS.navy,
+            background: COLORS.green,
+            border: "none",
+            borderRadius: 8,
+            padding: "9px 18px",
+            cursor: scanning ? "default" : "pointer",
+            opacity: scanning ? 0.6 : 1,
+          }}
+        >
+          {scanning ? "Scanning…" : "Scan this message"}
+        </button>
+      </div>
+
+      {result && (
+        <div style={{ marginTop: 14 }}>
+          <Pill tone={result.isFraud ? "red" : "green"}>
+            {result.isFraud ? "flagged as suspicious" : "no known patterns matched"}
+          </Pill>
+
+          {result.matches.length === 0 && result.senderCheck.trusted ? (
+            <p style={{ fontFamily: FONT_BODY, fontSize: 13, color: COLORS.boneMuted, marginTop: 10 }}>
+              No smishing patterns detected and sender is a verified shortcode. Always stay cautious with unexpected messages regardless.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              {result.matches.map((m, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.amber, marginTop: 7, flexShrink: 0 }} />
+                  <span style={{ fontFamily: FONT_BODY, fontSize: 13, color: COLORS.bone, lineHeight: 1.5 }}>
+                    <span style={{ fontFamily: FONT_MONO, color: COLORS.amber }}>{m.label}.</span> {m.detail}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: result.senderCheck.trusted ? COLORS.green : COLORS.amber,
+                    marginTop: 7,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontFamily: FONT_BODY, fontSize: 13, color: COLORS.bone, lineHeight: 1.5 }}>
+                  <span style={{ fontFamily: FONT_MONO, color: result.senderCheck.trusted ? COLORS.green : COLORS.amber }}>
+                    {result.senderCheck.trusted ? "Sender verified." : "Sender not verified."}
+                  </span>{" "}
+                  {result.senderCheck.reason}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ---------- Scanner module ----------
 function ScannerModule() {
   const [scanned, setScanned] = useState({});
@@ -186,6 +379,21 @@ function ScannerModule() {
           </p>
         </div>
         <Pill tone="red">{blockedCount} threats blocked this session</Pill>
+      </div>
+
+      <LiveTester onFraudDetected={() => setBlockedCount((c) => c + 1)} />
+
+      <div
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 11,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: COLORS.boneFaint,
+          marginBottom: 10,
+        }}
+      >
+        Sample messages
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
