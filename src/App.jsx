@@ -749,6 +749,39 @@ function ArchitectureModule() {
   );
 }
 
+function Logo({ size = 30 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 30 30"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ flexShrink: 0, display: "block" }}
+    >
+      <defs>
+        <clipPath id="mlinzipesa-shield-clip">
+          <path d="M15 2 C15 2 6 3.5 5 5 V14.5 C5 21 9 25.5 15 28 C21 25.5 25 21 25 14.5 V5 C24 3.5 15 2 15 2 Z" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#mlinzipesa-shield-clip)">
+        <rect x="0" y="0" width="30" height="30" fill="#1EB53A" />
+        <polygon points="30,0 30,30 0,30" fill="#00A3DD" />
+        <line x1="-2" y1="32" x2="32" y2="-2" stroke="#FCD116" strokeWidth="3.4" />
+        <line x1="-2" y1="32" x2="32" y2="-2" stroke="#0B0B0B" strokeWidth="2.2" />
+      </g>
+      <path
+        d="M15 2 C15 2 6 3.5 5 5 V14.5 C5 21 9 25.5 15 28 C21 25.5 25 21 25 14.5 V5 C24 3.5 15 2 15 2 Z"
+        fill="none"
+        stroke="#D4AF37"
+        strokeWidth="0.9"
+      />
+      <rect x="10.8" y="9.2" width="8.4" height="14" rx="1.5" fill="white" />
+      <rect x="13" y="15.2" width="4" height="3.6" rx="0.6" fill="#16263B" />
+      <path d="M13.5 15.2 V13.8 a1.5 1.5 0 0 1 3 0 V15.2" fill="none" stroke="#16263B" strokeWidth="1.1" />
+    </svg>
+  );
+}
+
 // ---------- App shell ----------
 const TABS = [
   { id: "scanner", label: "SMS scanner" },
@@ -787,24 +820,7 @@ export default function MlinziPesaDemo() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: COLORS.green,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: FONT_DISPLAY,
-              fontWeight: 700,
-              fontSize: 15,
-              color: COLORS.navy,
-              flexShrink: 0,
-            }}
-          >
-            M
-          </div>
+          <Logo size={30} />
           <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 600, color: COLORS.bone }}>
             MlinziPesa
           </span>
