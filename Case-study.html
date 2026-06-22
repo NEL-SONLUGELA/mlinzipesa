@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MlinziPesa — case study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0F1B2B;
+    --card: #1B2C42;
+    --border: rgba(237,234,224,0.12);
+    --border-strong: rgba(237,234,224,0.22);
+    --bone: #EDEAE0;
+    --bone-muted: #A9B3C2;
+    --bone-faint: #6E7E94;
+    --green: #1F9E6D;
+    --green-soft: rgba(31,158,109,0.14);
+    --amber: #E8A23D;
+    --amber-soft: rgba(232,162,61,0.14);
+    --red: #D6453D;
+    --red-soft: rgba(214,69,61,0.14);
+    --font-display: 'Space Grotesk', 'Inter', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--navy);
+    font-family: var(--font-body);
+    color: var(--bone);
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 28px 80px; }
+
+  /* Nav */
+  .nav {
+    display: flex; align-items: center; gap: 10px;
+    padding: 24px 28px; max-width: 880px; margin: 0 auto;
+  }
+  .nav-name { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+
+  /* Hero */
+  .hero { padding: 56px 0 64px; border-bottom: 1px solid var(--border); }
+  .hero-tag {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--green); margin-bottom: 18px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .hero-tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  h1.hero-title {
+    font-family: var(--font-display); font-size: 42px; font-weight: 600;
+    line-height: 1.15; margin: 0 0 18px; max-width: 620px;
+  }
+  p.hero-sub {
+    font-family: var(--font-body); font-size: 17px; color: var(--bone-muted);
+    line-height: 1.6; max-width: 560px; margin: 0 0 28px;
+  }
+  .hero-meta { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 32px; }
+  .hero-meta-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bone-faint); margin-bottom: 4px; }
+  .hero-meta-value { font-family: var(--font-body); font-size: 14px; color: var(--bone); font-weight: 500; }
+
+  /* Section structure */
+  section { padding: 64px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  .section-label {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--bone-faint); margin-bottom: 14px;
+  }
+  h2.section-title {
+    font-family: var(--font-display); font-size: 28px; font-weight: 600;
+    margin: 0 0 16px; max-width: 560px;
+  }
+  p.section-body {
+    font-family: var(--font-body); font-size: 15.5px; color: var(--bone-muted);
+    line-height: 1.7; max-width: 640px; margin: 0 0 20px;
+  }
+
+  /* Stat strip */
+  .stat-strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--border); border-radius: 14px; overflow: hidden;
+    margin-top: 32px;
+  }
+  .stat-cell { background: var(--card); padding: 22px 20px; }
+  .stat-num { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--bone); margin-bottom: 6px; }
+  .stat-num.red { color: var(--red); }
+  .stat-label { font-family: var(--font-body); font-size: 12.5px; color: var(--bone-faint); line-height: 1.4; }
+
+  /* Pillar cards */
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 28px; }
+  .pillar-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 22px 24px;
+  }
+  .pillar-num { font-family: var(--font-mono); font-size: 12px; color: var(--bone-faint); margin-bottom: 14px; }
+  .pillar-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--bone); margin-bottom: 8px; }
+  .pillar-desc { font-family: var(--font-body); font-size: 13.5px; color: var(--bone-muted); line-height: 1.6; }
+
+  /* Mock preview cards (recreate the demo UI as static illustration) */
+  .mock-frame {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px 22px; margin-top: 32px;
+  }
+  .mock-label { font-family: var(--font-mono); font-size: 11px; color: var(--bone-faint); margin-bottom: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-body); font-size: 12px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .pill-green { background: var(--green-soft); color: var(--green); }
+  .pill-amber { background: var(--amber-soft); color: var(--amber); }
+  .pill-red { background: var(--red-soft); color: var(--red); }
+  .mock-sms-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .mock-sms-row:last-child { border-bottom: none; }
+  .mock-sender { font-family: var(--font-mono); font-size: 11.5px; color: var(--bone-faint); margin-bottom: 4px; }
+  .mock-text { font-family: var(--font-body); font-size: 13.5px; color: var(--bone); line-height: 1.5; max-width: 440px; }
+  .mock-ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 12.5px; }
+  .mock-ledger-row:last-child { border-bottom: none; }
+  .mock-ledger-id { color: var(--bone); font-weight: 600; }
+  .mock-ledger-payer { font-family: var(--font-body); color: var(--bone-muted); font-size: 13px; }
+  .mock-ledger-amt { color: var(--bone); }
+
+  /* Architecture diagram */
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-top: 28px; overflow-x: auto; }
+  .diagram-card svg { width: 100%; min-width: 600px; display: block; }
+
+  /* Flow list */
+  .flow-list { margin: 28px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0; }
+  .flow-item { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .flow-item:last-child { border-bottom: none; }
+  .flow-num { font-family: var(--font-mono); font-size: 13px; color: var(--green); flex-shrink: 0; width: 24px; }
+  .flow-text { font-family: var(--font-body); font-size: 14.5px; color: var(--bone); line-height: 1.6; }
+
+  /* Methodology */
+  .method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 28px; }
+  .method-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .method-title { font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--bone); margin-bottom: 6px; }
+  .method-desc { font-family: var(--font-body); font-size: 13px; color: var(--bone-muted); line-height: 1.55; }
+
+  /* Footer note */
+  .footer-note {
+    font-family: var(--font-body); font-size: 13px; color: var(--bone-faint);
+    line-height: 1.6; padding: 32px 0 0; max-width: 640px;
+  }
+
+  @media (max-width: 600px) {
+    h1.hero-title { font-size: 30px; }
+    h2.section-title { font-size: 22px; }
+    .hero { padding: 36px 0 44px; }
+    section { padding: 44px 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <svg width="26" height="26" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="navShieldClip">
+        <path d="M15 2 C15 2 6 3.5 5 5 V14.5 C5 21 9 25.5 15 28 C21 25.5 25 21 25 14.5 V5 C24 3.5 15 2 15 2 Z"/>
+      </clipPath>
+    </defs>
+    <g clip-path="url(#navShieldClip)">
+      <rect x="0" y="0" width="30" height="30" fill="#1EB53A"/>
+      <polygon points="30,0 30,30 0,30" fill="#00A3DD"/>
+      <line x1="-2" y1="32" x2="32" y2="-2" stroke="#FCD116" stroke-width="3.4"/>
+      <line x1="-2" y1="32" x2="32" y2="-2" stroke="#0B0B0B" stroke-width="2.2"/>
+    </g>
+    <path d="M15 2 C15 2 6 3.5 5 5 V14.5 C5 21 9 25.5 15 28 C21 25.5 25 21 25 14.5 V5 C24 3.5 15 2 15 2 Z" fill="none" stroke="#D4AF37" stroke-width="0.9"/>
+    <rect x="10.8" y="9.2" width="8.4" height="14" rx="1.5" fill="white"/>
+    <rect x="13" y="15.2" width="4" height="3.6" rx="0.6" fill="#16263B"/>
+    <path d="M13.5 15.2 V13.8 a1.5 1.5 0 0 1 3 0 V15.2" fill="none" stroke="#16263B" stroke-width="1.1"/>
+  </svg>
+  <span class="nav-name">MlinziPesa</span>
+</div>
+
+<div class="wrap">
+
+  <section class="hero" style="padding-top: 8px;">
+    <span class="hero-tag">Case study</span>
+    <h1 class="hero-title">A fraud shield and forensic ledger built for Tanzania's mobile money economy</h1>
+    <p class="hero-sub">
+      MlinziPesa protects small and medium businesses from SMS-based mobile money fraud through
+      real-time message screening, live payment verification, and a tamper-evident audit trail —
+      designed for the realities of Swahili and English smishing, sub-2-second verification needs,
+      and TRA compliance.
+    </p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <div class="hero-meta-label">Role</div>
+        <div class="hero-meta-value">Software design &amp; prototype</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="hero-meta-label">Stack</div>
+        <div class="hero-meta-value">React, on-device NLP concept, hash-chained ledger</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="hero-meta-label">Pilot scope</div>
+        <div class="hero-meta-value">50 SMEs, Tanzania</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">The problem</div>
+    <h2 class="section-title">Mobile money fraud is outpacing the businesses that depend on it</h2>
+    <p class="section-body">
+      Tanzania's mobile accounts grew from 35.5 million in 2021 to 76.5 million in 2025, with
+      transactions projected to reach 6.3 billion. That growth has been matched by a surge in
+      smishing, fake payment receipts, and SIM-swap fraud — and SMEs, who rely on manual
+      verification of SMS receipts, are the most exposed.
+    </p>
+    <div class="stat-strip">
+      <div class="stat-cell">
+        <div class="stat-num red">5.3B</div>
+        <div class="stat-label">TZS lost to financial fraud in 2024</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num red">3,971</div>
+        <div class="stat-label">Fraud cases logged by Vodacom, Jun–Sep 2025</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num red">86%</div>
+        <div class="stat-label">Of users rank fraud as their top obstacle</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num red">1,400</div>
+        <div class="stat-label">SIM cards seized from a single syndicate</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">The approach</div>
+    <h2 class="section-title">Three layers of defense, built around how a transaction actually happens</h2>
+    <p class="section-body">
+      Rather than one generic fraud filter, MlinziPesa is structured around the three points where
+      a fraudulent transaction can be caught: before the message is trusted, before the payment
+      is recorded, and after — when it needs to be proven.
+    </p>
+    <div class="pillars">
+      <div class="pillar-card">
+        <div class="pillar-num">01</div>
+        <div class="pillar-title">SMS smishing scanner</div>
+        <div class="pillar-desc">On-device NLP scans incoming SMS in Swahili and English for known fraud patterns — like "TumaPIN" requests or fake TRA codes — before the cashier ever reads them.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-num">02</div>
+        <div class="pillar-title">Real-time verification</div>
+        <div class="pillar-desc">Every claimed payment is checked against the operator's API sandbox in under two seconds, catching fake receipts before they're treated as paid.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-num">03</div>
+        <div class="pillar-title">Forensic ledger</div>
+        <div class="pillar-desc">Verified payments are written into a hash-chained, tamper-evident log — exportable as PDF or Excel for TRA audits.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Inside the product</div>
+    <h2 class="section-title">What it looks like in practice</h2>
+    <p class="section-body">
+      A working prototype demonstrates the full flow — flagging a smishing attempt, verifying a
+      legitimate payment, and surfacing a forged receipt before it reaches the books.
+    </p>
+
+    <div class="mock-frame">
+      <div class="mock-label">Scanner — incoming messages</div>
+      <div class="mock-sms-row">
+        <div>
+          <div class="mock-sender">M-PESA</div>
+          <div class="mock-text">Umepokea TZS 450,000 kutoka JOHN MWAKIBOLWA. Salio: TZS 612,300.</div>
+        </div>
+        <span class="pill pill-green">verified safe</span>
+      </div>
+      <div class="mock-sms-row">
+        <div>
+          <div class="mock-sender">+255 687 220 91</div>
+          <div class="mock-text">TumaPIN yako sasa kuthibitisha malipo ya TZS 850,000 vinginevyo akaunti yako itafungwa leo.</div>
+        </div>
+        <span class="pill pill-red">flagged</span>
+      </div>
+    </div>
+
+    <div class="mock-frame" style="margin-top: 14px;">
+      <div class="mock-label">Forensic ledger — hash-chained entries</div>
+      <div class="mock-ledger-row">
+        <span class="mock-ledger-id">TX-88291</span>
+        <span class="mock-ledger-payer">John Mwakibolwa</span>
+        <span class="mock-ledger-amt">TZS 450,000</span>
+        <span class="pill pill-green">verified</span>
+      </div>
+      <div class="mock-ledger-row">
+        <span class="mock-ledger-id">TX-88293</span>
+        <span class="mock-ledger-payer">Unknown sender</span>
+        <span class="mock-ledger-amt">TZS 850,000</span>
+        <span class="pill pill-red">API mismatch</span>
+      </div>
+      <div class="mock-ledger-row">
+        <span class="mock-ledger-id">TX-88295</span>
+        <span class="mock-ledger-payer">Hassan Juma</span>
+        <span class="mock-ledger-amt">TZS 310,000</span>
+        <span class="pill pill-green">verified</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">System architecture</div>
+    <h2 class="section-title">How a payment moves through the system</h2>
+    <div class="diagram-card">
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+        <g>
+          <rect x="20" y="20" width="150" height="56" rx="8" fill="rgba(237,234,224,0.06)" stroke="rgba(237,234,224,0.22)"/>
+          <text x="95" y="44" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#EDEAE0">Cashier app</text>
+          <text x="95" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">receives SMS</text>
+        </g>
+        <g>
+          <rect x="290" y="20" width="150" height="56" rx="8" fill="rgba(232,162,61,0.14)" stroke="rgba(232,162,61,0.45)"/>
+          <text x="365" y="44" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#E8A23D">NLP scanner</text>
+          <text x="365" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">Swahili + English</text>
+        </g>
+        <g>
+          <rect x="560" y="20" width="140" height="56" rx="8" fill="rgba(214,69,61,0.14)" stroke="rgba(214,69,61,0.45)"/>
+          <text x="630" y="52" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#D6453D">Block sender</text>
+        </g>
+        <g>
+          <rect x="20" y="120" width="150" height="56" rx="8" fill="rgba(237,234,224,0.06)" stroke="rgba(237,234,224,0.22)"/>
+          <text x="95" y="144" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#EDEAE0">Verification module</text>
+          <text x="95" y="158" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">checks ledger</text>
+        </g>
+        <g>
+          <rect x="290" y="120" width="150" height="56" rx="8" fill="rgba(232,162,61,0.14)" stroke="rgba(232,162,61,0.45)"/>
+          <text x="365" y="144" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#E8A23D">Operator API sandbox</text>
+          <text x="365" y="158" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">Vodacom / Tigo</text>
+        </g>
+        <g>
+          <rect x="560" y="120" width="140" height="56" rx="8" fill="rgba(214,69,61,0.14)" stroke="rgba(214,69,61,0.45)"/>
+          <text x="630" y="152" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#D6453D">Flag mismatch</text>
+        </g>
+        <g>
+          <rect x="20" y="220" width="150" height="56" rx="8" fill="rgba(31,158,109,0.14)" stroke="rgba(31,158,109,0.45)"/>
+          <text x="95" y="244" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1F9E6D">Forensic ledger</text>
+          <text x="95" y="258" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">hash chain</text>
+        </g>
+        <g>
+          <rect x="290" y="220" width="150" height="56" rx="8" fill="rgba(31,158,109,0.14)" stroke="rgba(31,158,109,0.45)"/>
+          <text x="365" y="244" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1F9E6D">Owner dashboard</text>
+          <text x="365" y="258" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">live stats</text>
+        </g>
+        <g>
+          <rect x="560" y="220" width="140" height="56" rx="8" fill="rgba(31,158,109,0.14)" stroke="rgba(31,158,109,0.45)"/>
+          <text x="630" y="244" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1F9E6D">TRA export</text>
+          <text x="630" y="258" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6E7E94">PDF / Excel</text>
+        </g>
+        <line x1="170" y1="48" x2="285" y2="48" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(285,48) rotate(0)" fill="#6E7E94"/>
+        <line x1="440" y1="48" x2="555" y2="48" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(555,48) rotate(0)" fill="#6E7E94"/>
+        <line x1="170" y1="148" x2="285" y2="148" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(285,148) rotate(0)" fill="#6E7E94"/>
+        <line x1="440" y1="148" x2="555" y2="148" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(555,148) rotate(0)" fill="#6E7E94"/>
+        <line x1="170" y1="248" x2="285" y2="248" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(285,248) rotate(0)" fill="#6E7E94"/>
+        <line x1="440" y1="248" x2="555" y2="248" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(555,248) rotate(0)" fill="#6E7E94"/>
+        <line x1="95" y1="76" x2="95" y2="117" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(95,117) rotate(90)" fill="#6E7E94"/>
+        <line x1="365" y1="176" x2="365" y2="217" stroke="#6E7E94" stroke-width="1.4"/>
+        <polygon points="0,-4 7,0 0,4" transform="translate(365,217) rotate(90)" fill="#6E7E94"/>
+      </svg>
+    </div>
+
+    <ol class="flow-list">
+      <li class="flow-item"><span class="flow-num">01</span><span class="flow-text">Customer pays via mobile money; an SMS receipt arrives at the cashier's device.</span></li>
+      <li class="flow-item"><span class="flow-num">02</span><span class="flow-text">On-device NLP scans the SMS text for known smishing patterns before the cashier sees it.</span></li>
+      <li class="flow-item"><span class="flow-num">03</span><span class="flow-text">If safe, the verification module checks the claimed amount against the operator API sandbox in real time, target under two seconds.</span></li>
+      <li class="flow-item"><span class="flow-num">04</span><span class="flow-text">A match writes a new block to the forensic ledger, hashed against the previous block's hash.</span></li>
+      <li class="flow-item"><span class="flow-num">05</span><span class="flow-text">A mismatch is flagged immediately and excluded from the ledger until a human reviews it.</span></li>
+      <li class="flow-item"><span class="flow-num">06</span><span class="flow-text">Owners view live totals on the dashboard; auditors export the ledger as PDF or Excel for TRA compliance.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="section-label">Targets</div>
+    <h2 class="section-title">What success looks like for the pilot</h2>
+    <p class="section-body">
+      The pilot is scoped around 50 SMEs, with concrete, measurable targets rather than open-ended
+      ambitions — chosen so the system's impact can be verified, not just claimed.
+    </p>
+    <div class="stat-strip">
+      <div class="stat-cell">
+        <div class="stat-num">60%</div>
+        <div class="stat-label">Reduction in smishing within 3 months</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">&lt;2s</div>
+        <div class="stat-label">Verification latency per transaction</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">50</div>
+        <div class="stat-label">SMEs in the pilot cohort</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">100%</div>
+        <div class="stat-label">Of verified payments hash-logged</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Methodology</div>
+    <h2 class="section-title">How it was built</h2>
+    <div class="method-grid">
+      <div class="method-card">
+        <div class="method-title">Requirements &amp; analysis</div>
+        <div class="method-desc">Engaged a pilot group of 50 SMEs to understand vulnerabilities, transaction volume, and accounting needs; reviewed operator API docs and TRA compliance requirements.</div>
+      </div>
+      <div class="method-card">
+        <div class="method-title">System design</div>
+        <div class="method-desc">Designed the NLP engine, the verification module's API integration, and the forensic ledger's hashing mechanism.</div>
+      </div>
+      <div class="method-card">
+        <div class="method-title">Implementation</div>
+        <div class="method-desc">Built the cashier-facing interface, the NLP scanning logic, and the backend ledger, focused on performance and security.</div>
+      </div>
+      <div class="method-card">
+        <div class="method-title">Testing &amp; evaluation</div>
+        <div class="method-desc">Unit, integration, and pilot testing against the 60% smishing-reduction and sub-2-second latency targets.</div>
+      </div>
+    </div>
+
+    <p class="footer-note">
+      This case study presents the design and prototype of MlinziPesa. The interactive prototype
+      demonstrates the intended user flow using sample and rule-based detection logic; production
+      deployment would require a trained NLP model, live integration with mobile operator APIs, and
+      cryptographic (not illustrative) hashing for the ledger.
+    </p>
+  </section>
+
+</div>
+
+</body>
+</html>
